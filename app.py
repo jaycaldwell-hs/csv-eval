@@ -82,7 +82,11 @@ def run_eval():
         csv_text = df.to_csv(index=False)
         user_content = f"Here is the full CSV data:\n\n{csv_text}"
         with st.spinner("Running eval on full dataset..."):
-            result = call_llm(client, system_prompt, user_content, model)
+            try:
+                result = call_llm(client, system_prompt, user_content, model)
+            except Exception as e:
+                st.error(f"LLM error: {e}")
+                return
         st.markdown(result)
     else:
         progress = st.progress(0)
@@ -91,7 +95,10 @@ def run_eval():
             row_text = "\n".join(f"{col}: {val}" for col, val in row.items())
             user_content = f"Row {i + 1}:\n{row_text}"
             with st.spinner(f"Evaluating row {i + 1}/{len(df)}..."):
-                result = call_llm(client, system_prompt, user_content, model)
+                try:
+                    result = call_llm(client, system_prompt, user_content, model)
+                except Exception as e:
+                    result = f"ERROR: {e}"
             results.append(result)
             progress.progress((i + 1) / len(df))
 
