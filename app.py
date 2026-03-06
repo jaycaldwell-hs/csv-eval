@@ -13,13 +13,10 @@ st.set_page_config(page_title="CSV Eval", layout="wide")
 st.title("CSV Eval Runner")
 
 # --- Sidebar config ---
+api_key = os.getenv("OPENAI_API_KEY", "") or st.secrets.get("OPENAI_API_KEY", "")
+
 with st.sidebar:
     st.header("Settings")
-    api_key = st.text_input(
-        "OpenAI API Key",
-        value=os.getenv("OPENAI_API_KEY", ""),
-        type="password",
-    )
     model = st.selectbox("Model", ["gpt-5.2", "gpt-5.2-mini", "gpt-4.1", "gpt-4.1-mini"], index=0)
     mode = st.radio("Mode", ["Row-by-row", "All at once"])
     auto_refresh = st.checkbox("Auto-refresh (interval)")
@@ -58,7 +55,7 @@ def call_llm(client: OpenAI, system: str, user_content: str, model_name: str) ->
 
 def run_eval():
     if not api_key:
-        st.error("Please provide an OpenAI API key.")
+        st.error("OpenAI API key not configured. Set OPENAI_API_KEY in environment or Streamlit secrets.")
         return
     if not csv_url:
         st.error("Please provide a CSV URL.")
