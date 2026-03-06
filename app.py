@@ -15,9 +15,10 @@ st.title("CSV Eval Runner")
 # --- Sidebar config ---
 api_key = os.getenv("OPENAI_API_KEY", "") or st.secrets.get("OPENAI_API_KEY", "")
 
+MODEL = "gpt-5.2"
+
 with st.sidebar:
     st.header("Settings")
-    model = st.selectbox("Model", ["gpt-5.2", "gpt-5.2-mini", "gpt-4.1", "gpt-4.1-mini"], index=0)
     mode = st.radio("Mode", ["Row-by-row", "All at once"])
     auto_refresh = st.checkbox("Auto-refresh (interval)")
     if auto_refresh:
@@ -91,7 +92,7 @@ def run_eval():
         user_content = f"Here are all conversations:\n\n{all_convos}"
         with st.spinner("Running eval on full dataset..."):
             try:
-                result = call_llm(client, system_prompt, user_content, model)
+                result = call_llm(client, system_prompt, user_content, MODEL)
             except Exception as e:
                 st.error(f"LLM error: {e}")
                 return
@@ -102,7 +103,7 @@ def run_eval():
         for i, convo in enumerate(conversations):
             with st.spinner(f"Evaluating row {i + 1}/{len(conversations)}..."):
                 try:
-                    result = call_llm(client, system_prompt, str(convo), model)
+                    result = call_llm(client, system_prompt, str(convo), MODEL)
                 except Exception as e:
                     result = f"ERROR: {e}"
             results.append(result)
