@@ -43,8 +43,8 @@ TARGET_COLUMN = "conversation_json"
 
 def normalize_sheets_url(url: str) -> str:
     """Convert any Google Sheets URL to a CSV export URL."""
-    # Already a pub?output=csv link
-    if "pub?output=csv" in url or "/export?format=csv" in url:
+    # Already a published CSV or export link — don't touch it
+    if "output=csv" in url or "/export?format=csv" in url:
         return url
     # Regular edit URL: extract sheet ID and convert to export
     m = re.search(r"/spreadsheets/d/([a-zA-Z0-9_-]+)", url)
