@@ -32,13 +32,15 @@ csv_url = st.text_input(
 system_prompt = st.text_area(
     "System Prompt",
     height=150,
-    placeholder="e.g. 'For each row, evaluate whether the conversation contains a policy violation. Return PASS or FAIL with a brief reason.'",
+    placeholder="e.g. 'Evaluate this conversation for policy compliance. Return PASS or FAIL with reasoning.'",
 )
+
+TARGET_COLUMN = "conversation_json"
 
 
 @st.cache_data(ttl=60)
 def fetch_csv(url: str) -> pd.DataFrame:
-    return pd.read_csv(url, on_bad_lines="skip")
+    return pd.read_csv(url, engine="python", on_bad_lines="skip")
 
 
 def call_llm(client: OpenAI, system: str, user_content: str, model_name: str) -> str:
@@ -73,14 +75,20 @@ def run_eval():
             st.error(f"Failed to fetch CSV: {e}")
             return
 
-    st.subheader("Source Data")
-    st.dataframe(df, use_container_width=True)
+    if TARGET_COLUMN not in df.columns:
+        st.error(f"Column '{TARGET_COLUMN}' not found. Available columns: {', '.join(df.columns)}")
+        return
+
+    conversations = df[TARGET_COLUMN].dropna().reset_index(drop=True)
+    st.info(f"Found {len(conversations)} rows with '{TARGET_COLUMN}' data.")
 
     st.subheader("Eval Results")
 
     if mode == "All at once":
-        csv_text = df.to_csv(index=False)
-        user_content = f"Here is the full CSV data:\n\n{csv_text}"
+        all_convos = "\n\n---\n\n".join(
+            f"[Row {i + 1}]\n{c}" for i, c in enumerate(conversations)
+        )
+        user_content = f"Here are all conversations:\n\n{all_convos}"
         with st.spinner("Running eval on full dataset..."):
             try:
                 result = call_llm(client, system_prompt, user_content, model)
@@ -91,22 +99,21 @@ def run_eval():
     else:
         progress = st.progress(0)
         results = []
-        for i, row in df.iterrows():
-            row_text = "\n".join(f"{col}: {val}" for col, val in row.items())
-            user_content = f"Row {i + 1}:\n{row_text}"
-            with st.spinner(f"Evaluating row {i + 1}/{len(df)}..."):
+        for i, convo in enumerate(conversations):
+            with st.spinner(f"Evaluating row {i + 1}/{len(conversations)}..."):
                 try:
-                    result = call_llm(client, system_prompt, user_content, model)
+                    result = call_llm(client, system_prompt, str(convo), model)
                 except Exception as e:
                     result = f"ERROR: {e}"
             results.append(result)
-            progress.progress((i + 1) / len(df))
+            progress.progress((i + 1) / len(conversations))
 
-        result_df = df.copy()
-        result_df["eval_result"] = results
+        result_df = pd.DataFrame({
+            TARGET_COLUMN: conversations,
+            "eval_result": results,
+        })
         st.dataframe(result_df, use_container_width=True)
 
-        # Download option
         csv_out = result_df.to_csv(index=False)
         st.download_button(
             "Download results as CSV",
