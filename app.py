@@ -1,7 +1,9 @@
 import io
+import re
 import time
 
 import pandas as pd
+import requests
 import streamlit as st
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -39,9 +41,34 @@ system_prompt = st.text_area(
 TARGET_COLUMN = "conversation_json"
 
 
+def normalize_sheets_url(url: str) -> str:
+    """Convert any Google Sheets URL to a CSV export URL."""
+    # Already a pub?output=csv link
+    if "pub?output=csv" in url or "/export?format=csv" in url:
+        return url
+    # Regular edit URL: extract sheet ID and convert to export
+    m = re.search(r"/spreadsheets/d/([a-zA-Z0-9_-]+)", url)
+    if m:
+        sheet_id = m.group(1)
+        # Check for gid param
+        gid_match = re.search(r"gid=(\d+)", url)
+        gid = gid_match.group(1) if gid_match else "0"
+        return f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
+    return url
+
+
 @st.cache_data(ttl=60)
 def fetch_csv(url: str) -> pd.DataFrame:
-    return pd.read_csv(url, engine="python", on_bad_lines="skip")
+    url = normalize_sheets_url(url)
+    resp = requests.get(url, timeout=30)
+    resp.raise_for_status()
+    content_type = resp.headers.get("content-type", "")
+    if "text/html" in content_type:
+        raise ValueError(
+            "Got HTML instead of CSV. The sheet may not be shared publicly. "
+            "Set sharing to 'Anyone with the link' can view."
+        )
+    return pd.read_csv(io.StringIO(resp.text), engine="python", on_bad_lines="skip")
 
 
 def call_llm(client: OpenAI, system: str, user_content: str, model_name: str) -> str:
