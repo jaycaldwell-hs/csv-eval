@@ -38,7 +38,7 @@ system_prompt = st.text_area(
 
 @st.cache_data(ttl=60)
 def fetch_csv(url: str) -> pd.DataFrame:
-    return pd.read_csv(url)
+    return pd.read_csv(url, on_bad_lines="skip")
 
 
 def call_llm(client: OpenAI, system: str, user_content: str, model_name: str) -> str:
