@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install:*)",
+      "Bash(gh repo:*)",
+      "Bash(brew list gh)",
+      "Read(//opt/homebrew/bin/**)",
+      "Read(//usr/local/bin/**)",
+      "Bash(git:*)",
+      "WebFetch(domain:docs.google.com)"
+    ]
+  }
+}
