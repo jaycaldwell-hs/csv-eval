@@ -28,8 +28,6 @@ with tab_quick:
 
 with tab_projects:
     store = get_store()
-    if getattr(store, "mode", "") == "local":
-        st.info("Projects running in local mode (no Google Sheets secrets). Data is stored under `.local_data/`.")
 
     selected_id = project_list.render(store)
     if selected_id:
