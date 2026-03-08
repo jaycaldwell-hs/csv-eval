@@ -41,6 +41,7 @@ csv_eval/
 - Cache tracks row fingerprints to process only new/changed rows.
 - `Clear Cache` and `Reset & Relink Sheet` are supported.
 - Run logs capture per-run metrics (`rows_total`, `rows_processed`, `rows_skipped`, `rows_errored`) and summary errors.
+- If Google Sheets secrets are missing, Projects automatically use local mode with data under `.local_data/`.
 
 ## Legacy Compatibility
 - Existing `_projects` rows with legacy fields (for example status/interval) are still loadable.

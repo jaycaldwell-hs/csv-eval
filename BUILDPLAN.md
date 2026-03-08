@@ -79,6 +79,7 @@ csv_eval/
   - update cache
   - write run log summary
 - No background polling loops, timers, or scheduler hooks.
+- If Sheets secrets are unavailable, Projects run in local mode (`.local_data/store.json` + `.local_data/outputs/*.csv`).
 
 ## Cache and Relink Semantics
 - `Clear Cache` empties `_cache_{project_id}`.

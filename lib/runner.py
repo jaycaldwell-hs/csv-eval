@@ -4,11 +4,10 @@ import json
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from lib.cache import ProjectCache, compute_fingerprint, compute_row_key
+from lib.cache import compute_fingerprint, compute_row_key
 from lib.csv_fetch import fetch_csv
 from lib.llm import OpenAIProvider
 from lib.models import Project, RunLog
-from lib.sheets import append_rows, ensure_tab, upsert_rows
 
 
 def _utc_now_iso() -> str:
@@ -77,8 +76,7 @@ def run_project(project: Project, store, api_key: str = "") -> RunLog:
         records = dataframe.to_dict(orient="records")
         rows_total = len(records)
 
-        cache = ProjectCache(store.client, store.meta_spreadsheet_id)
-        existing_cache = cache.load(project.id)
+        existing_cache = store.load_cache(project.id)
 
         candidates = []
         for row in records:
@@ -92,13 +90,6 @@ def run_project(project: Project, store, api_key: str = "") -> RunLog:
                 candidates.append((row, row_key, fingerprint))
 
         to_process = candidates[: project.config.max_rows_per_run]
-
-        output_ws = ensure_tab(
-            store.client,
-            project.config.gsheet_spreadsheet_id,
-            project.config.gsheet_tab_name,
-            project.config.output_headers,
-        )
 
         provider = OpenAIProvider(api_key=api_key, model=project.config.model, temperature=project.config.temperature)
         output_rows: list[list] = []
@@ -124,17 +115,8 @@ def run_project(project: Project, store, api_key: str = "") -> RunLog:
             output_rows.append(output_row)
             existing_cache[row_key] = fingerprint
 
-        if project.config.write_mode == "upsert":
-            if not project.config.upsert_key_column:
-                raise ValueError("upsert_key_column is required when write_mode is 'upsert'")
-            if project.config.upsert_key_column not in project.config.output_headers:
-                raise ValueError("upsert_key_column must exist in output_headers")
-            key_index = project.config.output_headers.index(project.config.upsert_key_column)
-            upsert_rows(output_ws, output_rows, key_index)
-        else:
-            append_rows(output_ws, output_rows)
-
-        cache.save(project.id, existing_cache)
+        store.write_output_rows(project, output_rows)
+        store.save_cache(project.id, existing_cache)
 
         project.last_run_at = _utc_now_iso()
         project.last_run_rows_processed = rows_processed

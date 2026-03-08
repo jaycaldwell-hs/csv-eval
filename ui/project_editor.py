@@ -5,8 +5,6 @@ from copy import deepcopy
 
 import pandas as pd
 import streamlit as st
-
-from lib.cache import ProjectCache
 from lib.models import DEFAULT_HEADERS, Project
 from lib.runner import run_project
 
@@ -145,7 +143,7 @@ def _build_updated_project(
     return updated
 
 
-def _validate_before_save(project: Project) -> list[str]:
+def _validate_before_save(project: Project, require_output_sheet: bool) -> list[str]:
     cfg = project.config
     errors = []
     if not cfg.name:
@@ -154,9 +152,9 @@ def _validate_before_save(project: Project) -> list[str]:
         errors.append("CSV URL is required.")
     if not cfg.output_headers:
         errors.append("At least one output header is required.")
-    if not cfg.gsheet_spreadsheet_id:
+    if require_output_sheet and not cfg.gsheet_spreadsheet_id:
         errors.append("Spreadsheet ID is required.")
-    if not cfg.gsheet_tab_name:
+    if require_output_sheet and not cfg.gsheet_tab_name:
         errors.append("Sheet/Tab Name is required.")
     if cfg.write_mode == "upsert" and not cfg.upsert_key_column:
         errors.append("Upsert key column is required in upsert mode.")
@@ -272,14 +270,13 @@ def render(project: Project, store):
             key=_project_state_key(project, "relink_mode"),
         )
 
-        cache = ProjectCache(store.client, store.meta_spreadsheet_id)
         c1, c2 = st.columns(2)
         if c1.button("Clear Cache", key=_project_state_key(project, "clear_cache")):
-            cache.clear(project.id)
+            store.clear_cache(project.id)
             st.success("Cache cleared. Next Run Now can reprocess rows.")
 
         if c2.button("Reset & Relink Sheet", key=_project_state_key(project, "relink_sheet")):
-            if not spreadsheet_id.strip() or not tab_name.strip():
+            if store.requires_output_sheet_config and (not spreadsheet_id.strip() or not tab_name.strip()):
                 st.error("Spreadsheet ID and Sheet/Tab Name are required to relink.")
                 return None
             relinked = deepcopy(project)
@@ -288,7 +285,7 @@ def render(project: Project, store):
             store.save_project(relinked)
             should_reset_cache = relink_mode.startswith("Reset cache")
             if should_reset_cache:
-                cache.clear(project.id)
+                store.clear_cache(project.id)
                 st.success("Sheet relinked and cache reset.")
             else:
                 st.success("Sheet relinked and cache preserved.")
@@ -318,7 +315,7 @@ def render(project: Project, store):
 
     col_save, col_run, col_delete = st.columns(3)
     if col_save.button("Save", type="primary", key=_project_state_key(project, "save")):
-        errors = _validate_before_save(candidate)
+        errors = _validate_before_save(candidate, require_output_sheet=store.requires_output_sheet_config)
         if errors:
             for error in errors:
                 st.error(error)
@@ -329,7 +326,7 @@ def render(project: Project, store):
 
     run_log = None
     if col_run.button("Run Now", key=_project_state_key(project, "run_now")):
-        errors = _validate_before_save(candidate)
+        errors = _validate_before_save(candidate, require_output_sheet=store.requires_output_sheet_config)
         if errors:
             for error in errors:
                 st.error(error)
